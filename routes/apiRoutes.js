@@ -13,6 +13,25 @@ router.get('/led-status', (req, res) => {
   );
 });
 
+
+router.post('/update-led-color', (req, res) => {
+  const { color, nombre_status } = req.body; // Obtiene el estado y el color del cuerpo de la solicitud
+
+  connection.query(
+    'INSERT INTO indicadores (nombre, color) VALUES (?, ?) ON DUPLICATE KEY UPDATE color = ?',
+    [nombre_status, color, color], 
+    (error, results) => {
+      if (error) {
+        console.error('Error al actualizar el estado del LED:', error);
+        return res.status(500).json({ error: 'Error al actualizar el estado del LED en la base de datos' });
+      }
+      res.status(200).json({ message: 'Estado del LED actualizado correctamente' });
+    }
+  );
+});
+
+
+
 // Ruta para enviar comandos desde el frontend
 router.post('/send-command', (req, res) => {
   const { dispositivo, comando, estado } = req.body;
