@@ -3,35 +3,70 @@ const router = express.Router();
 const connection = require('../config/db');
 
 // Ruta para obtener el estado del LED
-router.get('/led-status', (req, res) => {
-  connection.query(
-    'SELECT color FROM indicadores ORDER BY timestamp DESC LIMIT 1', 
-    (error, results) => {
-      if (error) return res.status(500).json({ error: "Error en la base de datos" });
-      res.json({ color: results.length > 0 ? results[0].color : "rojo" });
+app.get('/system-status/:systemId', (req, res) => {
+  const systemId = req.params.systemId;
+
+  const query = `
+    SELECT name, color, status, type
+    FROM (
+      SELECT name, color, status, 'signal' AS type
+      FROM signals
+      WHERE system_id = ?
+      UNION ALL
+      SELECT name, color, active AS status, 'state' AS type
+      FROM statuses
+      WHERE system_id = ?
+      UNION ALL
+      SELECT mode AS name, NULL AS color, NULL AS status, 'selector' AS type
+      FROM selectors
+      WHERE system_id = ?
+    ) AS combined
+    ORDER BY type, name;
+  `;
+
+  connection.query(query, [systemId, systemId, systemId], (err, results) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      return res.status(500).json({ error: 'Error en la base de datos' });
     }
-  );
+
+    // Separar datos en categorías
+    const signals = results.filter(item => item.type === 'signal').map(item => ({
+      name: item.name,
+      color: item.color,
+      status: item.status
+    }));
+
+    const states = results.filter(item => item.type === 'state').map(item => ({
+      name: item.name,
+      color: item.color,
+      status: item.status
+    }));
+
+    const selector = results.find(item => item.type === 'selector') || { name: "AUTOMATICO" };
+
+    res.json({ signals, states, selector });
+  });
 });
 
+// Ruta para cambiar el modo del selector
+app.post('/toggle-selector', (req, res) => {
+  const { mode } = req.body;
 
-router.post('/update-led-color', (req, res) => {
-  const { color, nombre_status } = req.body; // Obtiene el estado y el color del cuerpo de la solicitud
+  const query = `
+    UPDATE selectors SET mode = ?
+    WHERE system_id = 1;  -- Cambiar según el ID del sistema
+  `;
 
-  connection.query(
-    'INSERT INTO indicadores (nombre, color) VALUES (?, ?) ON DUPLICATE KEY UPDATE color = ?',
-    [nombre_status, color, color], 
-    (error, results) => {
-      if (error) {
-        console.error('Error al actualizar el estado del LED:', error);
-        return res.status(500).json({ error: 'Error al actualizar el estado del LED en la base de datos' });
-      }
-      res.status(200).json({ message: 'Estado del LED actualizado correctamente' });
+  connection.query(query, [mode], (err) => {
+    if (err) {
+      console.error('Error actualizando el modo del selector:', err);
+      return res.status(500).json({ error: 'Error en la base de datos' });
     }
-  );
+
+    res.json({ message: 'Modo actualizado correctamente' });
+  });
 });
-
-
-
 // Ruta para enviar comandos desde el frontend
 router.post('/send-command', (req, res) => {
   const { dispositivo, comando, estado } = req.body;
