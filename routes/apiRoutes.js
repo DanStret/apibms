@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const connection = require('../config/db');
 
-app.get('/system-status/:systemId', (req, res) => {
+router.get('/system-status/:systemId', (req, res) => {
   const systemId = req.params.systemId;
 
   const query = `
