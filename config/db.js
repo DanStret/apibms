@@ -5,7 +5,7 @@ const connection = mysql.createConnection({
   host: process.env.DB_HOST || 'dataaws.cbqmua0skt3i.us-east-2.rds.amazonaws.com',
   user: process.env.DB_USER || 'admin',
   password: process.env.DB_PASSWORD || '123admin',
-  database: process.env.DB_NAME || 'dataaws'
+  database: process.env.DB_NAME || 'aws'
 });
 
 connection.connect((error) => {
