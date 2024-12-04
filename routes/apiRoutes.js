@@ -2,29 +2,55 @@ const express = require('express');
 const router = express.Router();
 const connection = require('../config/db');
 
-// Ruta para obtener el estado del LED
 app.get('/system-status/:systemId', (req, res) => {
   const systemId = req.params.systemId;
 
   const query = `
     SELECT name, color, status, type
+FROM (
+    -- Últimos datos únicos de señales (signals)
+    SELECT s1.name, s1.color, s1.status, 'signal' AS type
+    FROM signals s1
+    INNER JOIN (
+        SELECT name, MAX(updated_at) AS latest_update
+        FROM signals
+        WHERE system_id = 1
+        GROUP BY name
+    ) s2
+    ON s1.name = s2.name AND s1.updated_at = s2.latest_update
+    WHERE s1.system_id = 1
+
+    UNION ALL
+
+    -- Últimos datos únicos de estados (statuses)
+    SELECT st1.name, st1.color, st1.active AS status, 'state' AS type
+    FROM statuses st1
+    INNER JOIN (
+        SELECT name, MAX(updated_at) AS latest_update
+        FROM statuses
+        WHERE system_id = 1
+        GROUP BY name
+    ) st2
+    ON st1.name = st2.name AND st1.updated_at = st2.latest_update
+    WHERE st1.system_id = 1
+
+    UNION ALL
+
+    -- Últimos datos del selector (selectors)
+    SELECT mode AS name, NULL AS color, NULL AS status, 'selector' AS type
     FROM (
-      SELECT name, color, status, 'signal' AS type
-      FROM signals
-      WHERE system_id = ?
-      UNION ALL
-      SELECT name, color, active AS status, 'state' AS type
-      FROM statuses
-      WHERE system_id = ?
-      UNION ALL
-      SELECT mode AS name, NULL AS color, NULL AS status, 'selector' AS type
-      FROM selectors
-      WHERE system_id = ?
-    ) AS combined
-    ORDER BY type, name;
+        SELECT mode, updated_at
+        FROM selectors
+        WHERE system_id = 1
+        ORDER BY updated_at DESC
+        LIMIT 1
+    ) latest_selector
+) AS combined
+ORDER BY type, name;
+
   `;
 
-  connection.query(query, [systemId, systemId, systemId], (err, results) => {
+  connection.query(query, [systemId, systemId, systemId, systemId, systemId], (err, results) => {
     if (err) {
       console.error('Error ejecutando la consulta:', err);
       return res.status(500).json({ error: 'Error en la base de datos' });
@@ -43,11 +69,12 @@ app.get('/system-status/:systemId', (req, res) => {
       status: item.status
     }));
 
-    const selector = results.find(item => item.type === 'selector') || { name: "AUTOMATICO" };
+    const selector = results.find(item => item.type === 'selector') || { name: "MANUAL" };
 
     res.json({ signals, states, selector });
   });
 });
+
 
 // Ruta para cambiar el modo del selector
 app.post('/toggle-selector', (req, res) => {
@@ -67,6 +94,7 @@ app.post('/toggle-selector', (req, res) => {
     res.json({ message: 'Modo actualizado correctamente' });
   });
 });
+
 // Ruta para enviar comandos desde el frontend
 router.post('/send-command', (req, res) => {
   const { dispositivo, comando, estado } = req.body;
