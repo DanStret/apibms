@@ -77,7 +77,7 @@ ORDER BY type, name;
 
 
 // Ruta para cambiar el modo del selector
-app.post('/toggle-selector', (req, res) => {
+router.post('/toggle-selector', (req, res) => {
   const { mode } = req.body;
 
   const query = `
