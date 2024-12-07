@@ -98,12 +98,18 @@ router.post('/toggle-selector', (req, res) => {
 // Ruta para enviar comandos desde el frontend
 router.post('/send-command', (req, res) => {
   const { dispositivo, comando, estado } = req.body;
+  console.log('Datos recibidos:', { dispositivo, comando, estado });
+  
   const query = `INSERT INTO control_comandos (dispositivo, comando, estado) VALUES (?, ?, ?)`;
   connection.query(query, [dispositivo, comando, estado], (error) => {
-    if (error) return res.status(500).json({ error: "Error al guardar el comando" });
+    if (error) {
+      console.error('Error al insertar comando:', error);
+      return res.status(500).json({ error: "Error al guardar el comando", details: error.message });
+    }
     res.status(201).json({ message: "Comando guardado correctamente" });
   });
 });
+
 
 // Ruta para obtener el estado de varios dispositivos
 app.get('/device-status', (req, res) => {
