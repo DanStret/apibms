@@ -106,21 +106,30 @@ router.post('/send-command', (req, res) => {
 });
 
 // Ruta para obtener el estado de varios dispositivos
-router.get('/device-status', (req, res) => {
+app.get('/device-status', (req, res) => {
   const dispositivos = ['Variador', 'Rele 1', 'Ramp', 'Reverse'];
-  const promises = dispositivos.map((dispositivo) =>
-    new Promise((resolve, reject) => {
+  const promises = dispositivos.map(dispositivo => {
+    return new Promise((resolve, reject) => {
       connection.query(
         'SELECT estado FROM control_comandos WHERE dispositivo = ? ORDER BY timestamp DESC LIMIT 1',
         [dispositivo],
         (error, results) => {
-          if (error) return reject(error);
-          resolve({ dispositivo, estado: results.length > 0 ? results[0].estado : 'OFF' });
+          if (error) {
+            return reject(error);
+          }
+          if (results.length > 0) {
+            resolve({ dispositivo, estado: results[0].estado });
+          } else {
+            resolve({ dispositivo, estado: 'OFF' });
+          }
         }
       );
-    })
-  );
-  Promise.all(promises).then(results => res.json(results)).catch(() => res.status(500).json({ error: 'Error en la base de datos' }));
+    });
+  });
+
+  Promise.all(promises)
+    .then(results => res.json(results))
+    .catch(error => res.status(500).json({ error: 'Error en la base de datos' }));
 });
 
 // Ruta para obtener indicadores
